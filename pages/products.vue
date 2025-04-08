@@ -1,105 +1,102 @@
-<template>
-  <div class="p-6">
-    <UCard>
-      <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-semibold">Products</h1>
-        <UInput
-            v-model="search"
-            placeholder="Search products..."
-            icon="i-heroicons-magnifying-glass-20-solid"
-        />
-      </div>
+<script setup lang="ts">
+import { ref, h, onMounted } from 'vue'
+import { resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
-      <UTable
-          :rows="paginatedRows"
-          :columns="columns"
-          :sort="sort"
-          @update:sort="onSort"
-      >
-        <template #thumbnail-data="{ row }">
-          <img :src="row.thumbnail" class="w-[100px] h-[100px] object-cover rounded" />
-        </template>
-        <template #rating-data="{ row }">
-          <span
-              :class="{
-              'text-green-600': row.rating >= 4,
-              'text-yellow-600': row.rating >= 3 && row.rating < 4,
-              'text-red-600': row.rating < 3
-            }"
-          >
-            {{ row.rating }}
-          </span>
-        </template>
-      </UTable>
+const UBadge = resolveComponent('UBadge')
 
-      <div class="flex justify-end mt-4">
-        <UPagination
-            v-model="page"
-            :page-count="pageCount"
-            :total="filteredRows.length"
-        />
-      </div>
-    </UCard>
-  </div>
-</template>
+type Product = {
+  id: number
+  title: string
+  description: string
+  price: number
+  rating: number
+  brand: string
+  category: string
+  thumbnail: string
+}
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
+// API завантаження
+const data = ref<Product[]>([])
+const loading = ref(true)
 
-const products = ref([])
-const search = ref('')
-const sort = ref({ column: 'title', direction: 'asc' })
-const page = ref(1)
-const pageCount = 10
+onMounted(async () => {
+  try {
+    const res = await fetch('https://dummyjson.com/products')
+    const json = await res.json()
+    data.value = json.products
+  } catch (e) {
+    console.error('Failed to load products:', e)
+  } finally {
+    loading.value = false
+  }
+})
 
-const columns = [
-  { key: 'thumbnail', label: 'Image' },
-  { key: 'title', label: 'Title', sortable: true },
-  { key: 'description', label: 'Description' },
-  { key: 'price', label: 'Price', sortable: true },
-  { key: 'rating', label: 'Rating', sortable: true },
-  { key: 'brand', label: 'Brand', sortable: true },
-  { key: 'category', label: 'Category', sortable: true }
+const columns: TableColumn<Product>[] = [
+  {
+    accessorKey: 'thumbnail',
+    header: 'Image',
+    cell: ({ row }) =>
+        h('img', {
+          src: row.getValue('thumbnail'),
+          alt: 'Thumbnail',
+          width: 100,
+          height: 100,
+          class: 'object-cover rounded'
+        })
+  },
+  {
+    accessorKey: 'title',
+    header: 'Title'
+  },
+  {
+    accessorKey: 'description',
+    header: 'Description'
+  },
+  {
+    accessorKey: 'price',
+    header: 'Price',
+    cell: ({ row }) => `$${row.getValue('price')}`
+  },
+  {
+    accessorKey: 'rating',
+    header: 'Rating',
+    cell: ({ row }) => {
+      const rating = row.getValue('rating') as number
+      let color = 'success'
+      if (rating < 2) color = 'error'
+      else if (rating < 4) color = 'warning'
+
+      return h(UBadge, { color, variant: 'subtle' }, () => `${rating}/5`)
+    }
+  },
+  {
+    accessorKey: 'brand',
+    header: 'Brand'
+  },
+  {
+    accessorKey: 'category',
+    header: 'Category'
+  }
 ]
 
-// Завантаження даних з API
-onMounted(async () => {
-  const res = await fetch('https://dummyjson.com/products?limit=100')
-  const data = await res.json()
-  products.value = data.products
-})
-
-// Пошук
-const filteredRows = computed(() => {
-  if (!search.value) return products.value
-
-  return products.value.filter(product =>
-      Object.values(product).some(val =>
-          String(val).toLowerCase().includes(search.value.toLowerCase())
-      )
-  )
-})
-
-// Сортування
-const sortedRows = computed(() => {
-  if (!sort.value.column) return filteredRows.value
-
-  return [...filteredRows.value].sort((a, b) => {
-    const valA = a[sort.value.column]
-    const valB = b[sort.value.column]
-
-    if (valA < valB) return sort.value.direction === 'asc' ? -1 : 1
-    if (valA > valB) return sort.value.direction === 'asc' ? 1 : -1
-    return 0
-  })
-})
-
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * pageCount
-  return sortedRows.value.slice(start, start + pageCount)
-})
-
-function onSort(updatedSort) {
-  sort.value = updatedSort
-}
+const globalFilter = ref('')
 </script>
+
+<template>
+  <div class="flex flex-col flex-1 w-full">
+    <div class="flex px-4 py-3.5 border-b border-(--ui-border-accented)">
+      <UInput v-model="globalFilter" class="max-w-sm" placeholder="Filter products..." />
+    </div>
+
+    <div class="p-4">
+      <UTable
+          v-if="!loading"
+          :data="data"
+          :columns="columns"
+          v-model:global-filter="globalFilter"
+      />
+      <div v-else class="text-center py-10">Loading products...</div>
+    </div>
+  </div>
+</template>

@@ -5,7 +5,6 @@ export default defineNuxtConfig({
     enabled: true
   },
   modules: [
-    '@nuxt/ui',
-    '@vueuse/core'
+    '@nuxt/ui'
   ]
 })
