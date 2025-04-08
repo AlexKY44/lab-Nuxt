@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
-import { resolveComponent } from 'vue'
+import { useHead } from '#imports'
 import type { TableColumn } from '@nuxt/ui'
 
-const UBadge = resolveComponent('UBadge')
+useHead({
+  title: 'Список продуктів'
+})
 
 type Product = {
   id: number
@@ -16,9 +18,9 @@ type Product = {
   thumbnail: string
 }
 
-// API завантаження
 const data = ref<Product[]>([])
 const loading = ref(true)
+const globalFilter = ref('')
 
 onMounted(async () => {
   try {
@@ -26,7 +28,7 @@ onMounted(async () => {
     const json = await res.json()
     data.value = json.products
   } catch (e) {
-    console.error('Failed to load products:', e)
+    console.error('Помилка при завантаженні продуктів:', e)
   } finally {
     loading.value = false
   }
@@ -35,7 +37,7 @@ onMounted(async () => {
 const columns: TableColumn<Product>[] = [
   {
     accessorKey: 'thumbnail',
-    header: 'Image',
+    header: 'Фото',
     cell: ({ row }) =>
         h('img', {
           src: row.getValue('thumbnail'),
@@ -47,46 +49,46 @@ const columns: TableColumn<Product>[] = [
   },
   {
     accessorKey: 'title',
-    header: 'Title'
+    header: 'Назва'
   },
   {
     accessorKey: 'description',
-    header: 'Description'
+    header: 'Опис'
   },
   {
     accessorKey: 'price',
-    header: 'Price',
+    header: 'Ціна',
     cell: ({ row }) => `$${row.getValue('price')}`
   },
   {
     accessorKey: 'rating',
-    header: 'Rating',
+    header: 'Оцінка',
     cell: ({ row }) => {
       const rating = row.getValue('rating') as number
-      let color = 'success'
-      if (rating < 2) color = 'error'
-      else if (rating < 4) color = 'warning'
 
-      return h(UBadge, { color, variant: 'subtle' }, () => `${rating}/5`)
+      return h('span', {
+        class: [
+          'font-semibold',
+          rating < 4.5 ? 'text-red-500' : 'text-green-500'
+        ]
+      }, `${rating}/5`)
     }
   },
   {
     accessorKey: 'brand',
-    header: 'Brand'
+    header: 'Бренд'
   },
   {
     accessorKey: 'category',
-    header: 'Category'
+    header: 'Категорія'
   }
 ]
-
-const globalFilter = ref('')
 </script>
 
 <template>
   <div class="flex flex-col flex-1 w-full">
-    <div class="flex px-4 py-3.5 border-b border-(--ui-border-accented)">
-      <UInput v-model="globalFilter" class="max-w-sm" placeholder="Filter products..." />
+    <div class="flex px-4 py-3.5 border-b border-gray-200">
+      <UInput v-model="globalFilter" class="max-w-sm" placeholder="Фільтрувати продукти..." />
     </div>
 
     <div class="p-4">
@@ -95,8 +97,11 @@ const globalFilter = ref('')
           :data="data"
           :columns="columns"
           v-model:global-filter="globalFilter"
+          :sort="true"
+          :paginate="true"
+          :per-page="10"
       />
-      <div v-else class="text-center py-10">Loading products...</div>
+      <div v-else class="text-center py-10 text-gray-500">Завантаження продуктів...</div>
     </div>
   </div>
 </template>
